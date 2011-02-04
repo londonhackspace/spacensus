@@ -35,17 +35,17 @@ const long MAX_PERSON_INTERVAL_MS = 800;
 const long DELAY_BEFORE_RESET_MS = 1000;
 const long OBSTRUCTION_INTERVAL_MS = 5000;
 
-boolean updateDisplay = true;
-boolean updateSerial = true;
-int people = 0;
-int state = DELAY;
-int lastIncrement = 0;
+volatile boolean updateDisplay = true;
+volatile boolean updateSerial = true;
+volatile int people = 0;
+volatile int state = DELAY;
+volatile int lastIncrement = 0;
 boolean alarm = false;
 boolean beamInhibited = false;
 
 long beamInDurationMs = 0;
 long beamOutDurationMs = 0;
-long breakIntervalMs = 0;
+volatile long breakIntervalMs = 0;
 long resetIntervalMs = 0;
 
 LiquidCrystal lcd(LCD_RS, LCD_RW, LCD_ENABLE, LCD_D4, LCD_D5, LCD_D6, LCD_D7);
