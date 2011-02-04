@@ -8,13 +8,14 @@ Serial control format
     'L' - beam on
     'S' - poll for status
     'R' - reset counter
+    'M' - silence the current alarm
 
   Status response - sent on event or on poll:
   
     [K|A][I|O|N][X|L][count]\n
 
-    'K' - 'Okay - beams are not obstructed'
-    'A' - 'Alarm - beams are obstructed'
+    'K' - Okay - beams are not obstructed
+    'A' - Alarm - beams are obstructed
     'I' - Last event was a person coming in.
     'O' - Last event was a person going out.
     'N' - No previous events (just started).

@@ -286,6 +286,9 @@ void processSerialInput() {
     case 'X':
       beamInhibit();
       break;
+  case 'M':
+      noTone(ALARM);
+      break;
     case 'R':
       people = 0;
       lastIncrement = 0;
