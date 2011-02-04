@@ -63,6 +63,7 @@ void setup()
   pinMode(BEAM_IN, INPUT);
   pinMode(BEAM_OUT, INPUT);
 
+  lcd.begin(16, 2);
   lcd.print("spacensus v0.1");
 }
 
@@ -126,7 +127,6 @@ void handleBeamBreak(int interrupt, int gotoState, int waitingForState, int incr
       updateSerial = true;
     }
     state = DELAY;
-
   }
 }
 
@@ -146,8 +146,8 @@ void checkBeamsForObstructions() {
   if (!beamInhibited) {
     beamInDurationMs = calculateBeamBreakInterval(BEAM_IN, beamInDurationMs);
     beamOutDurationMs = calculateBeamBreakInterval(BEAM_OUT, beamOutDurationMs);
-
-    if (!beamInDurationMs >= OBSTRUCTION_INTERVAL_MS || beamOutDurationMs >= OBSTRUCTION_INTERVAL_MS) {
+    
+    if (beamInDurationMs >= OBSTRUCTION_INTERVAL_MS || beamOutDurationMs >= OBSTRUCTION_INTERVAL_MS) {
       alarmOn();
     } 
     else {
@@ -190,16 +190,27 @@ void alarmOff() {
 }
 
 void updateScreenIfRequired() {
-  if (updateDisplay) {
-    if (alarm) {
+  if (updateDisplay) { 
+    if (state != DELAY) {
       lcd.clear();
-      lcd.print("Beam obstructed!");
-    } 
-    else if (state != DELAY) {
-      lcd.clear();
+      lcd.setCursor(0,0);
       lcd.print("Occupancy: ");
       lcd.print(people, DEC);   
-    } 
+    }
+    if (alarm) {
+      lcd.setCursor(0,1);
+      lcd.print("Beam obstructed!");
+    } else if (beamInhibited) {
+      lcd.setCursor(0,1);
+      lcd.print("Beams disabled!");
+    } else {
+      lcd.setCursor(0,1);
+      if (lastIncrement > 0) {
+        lcd.print("             -->");
+      } else if (lastIncrement < 0) {
+        lcd.print("<--             ");
+      } 
+    }
 
     updateDisplay = false;
   }
@@ -274,6 +285,12 @@ void processSerialInput() {
       break;
     case 'X':
       beamInhibit();
+      break;
+    case 'R':
+      people = 0;
+      lastIncrement = 0;
+      state = DELAY;
+      updateSerial = true;
       break;
     }
   }

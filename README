@@ -7,6 +7,7 @@ Serial control format
     'X' - beam off
     'L' - beam on
     'S' - poll for status
+    'R' - reset counter
 
   Status response - sent on event or on poll:
   
