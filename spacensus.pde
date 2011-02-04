@@ -36,9 +36,12 @@ const long DELAY_BEFORE_RESET_MS = 1000;
 const long OBSTRUCTION_INTERVAL_MS = 5000;
 
 boolean updateDisplay = true;
+boolean updateSerial = true;
 int people = 0;
 int state = DELAY;
+int lastIncrement = 0;
 boolean alarm = false;
+boolean beamInhibited = false;
 
 long beamInDurationMs = 0;
 long beamOutDurationMs = 0;
@@ -46,7 +49,6 @@ long breakIntervalMs = 0;
 long resetIntervalMs = 0;
 
 LiquidCrystal lcd(LCD_RS, LCD_RW, LCD_ENABLE, LCD_D4, LCD_D5, LCD_D6, LCD_D7);
-
 
 void setup()
 {
@@ -71,22 +73,24 @@ void loop()
     handleResetDelay();
     break;
   case WAIT_OUT:
-      handleBreakInterval();
+    handleBreakInterval();
     break;
   case WAIT_IN:
-     handleBreakInterval();
+    handleBreakInterval();
     break;
   }
   checkBeamsForObstructions();
+  processSerialInput();
   updateScreenIfRequired();
+  updateSerialStatusIfRequired();
   delay(LOOP_WAIT_MS);
 }
 
 void handleBreakInterval() {
-    breakIntervalMs += LOOP_WAIT_MS;
-    if (breakIntervalMs > DELAY_BEFORE_RESET_MS) {
-      ready();
-    }
+  breakIntervalMs += LOOP_WAIT_MS;
+  if (breakIntervalMs > DELAY_BEFORE_RESET_MS) {
+    ready();
+  }
 }
 
 void ready() {
@@ -113,11 +117,13 @@ void handleBeamBreak(int interrupt, int gotoState, int waitingForState, int incr
   else if (state == waitingForState) {
     detachInterrupt(interrupt);    
     if (isBreakIntervalWithinLimits()) {
+      lastIncrement = increment;
       people += increment;
       if (people < 0) {
         people = 0;
       }
       updateDisplay = true;
+      updateSerial = true;
     }
     state = DELAY;
 
@@ -137,13 +143,17 @@ void handleResetDelay() {
 }
 
 void checkBeamsForObstructions() {
-  beamInDurationMs = calculateBeamBreakInterval(BEAM_IN, beamInDurationMs);
-  beamOutDurationMs = calculateBeamBreakInterval(BEAM_OUT, beamOutDurationMs);
+  if (!beamInhibited) {
+    beamInDurationMs = calculateBeamBreakInterval(BEAM_IN, beamInDurationMs);
+    beamOutDurationMs = calculateBeamBreakInterval(BEAM_OUT, beamOutDurationMs);
 
-  if (beamInDurationMs >= OBSTRUCTION_INTERVAL_MS || beamOutDurationMs >= OBSTRUCTION_INTERVAL_MS) {
-    alarmOn();
-  } 
-  else {
+    if (!beamInDurationMs >= OBSTRUCTION_INTERVAL_MS || beamOutDurationMs >= OBSTRUCTION_INTERVAL_MS) {
+      alarmOn();
+    } 
+    else {
+      alarmOff();
+    }
+  } else {
     alarmOff();
   }
 }
@@ -166,6 +176,7 @@ void alarmOn () {
     alarm = true;
     tone(ALARM, ALARM_TONE_HZ);
     updateDisplay = true;
+    updateSerial = true;
   }
 }
 
@@ -174,6 +185,7 @@ void alarmOff() {
     alarm = false;
     noTone(ALARM);
     updateDisplay = true;
+    updateSerial = true;
   }
 }
 
@@ -188,27 +200,82 @@ void updateScreenIfRequired() {
       lcd.print("Occupancy: ");
       lcd.print(people, DEC);   
     } 
+
     updateDisplay = false;
   }
 }
 
+void updateSerialStatusIfRequired() {
+  if (updateSerial) {
+    if (alarm) {
+      Serial.print("A");
+    } 
+    else {
+      Serial.print("K");
+    }
 
+    if (lastIncrement > 0) {
+      Serial.print("I");
+    } 
+    else if (lastIncrement < 0) {
+      Serial.print("O");
+    } 
+    else {
+      Serial.print("N");
+    }
 
+    if (beamInhibited) {
+      Serial.print("X");
+    } 
+    else {
+      Serial.print("L");
+    }
+    Serial.println(people, DEC);
+    updateSerial = false;
+  }
+}
 
+void beamInhibit() {
+  if (!beamInhibited) {
+    digitalWrite(BEAM_ENABLE, HIGH);
+    beamInhibited = true;
+    updateDisplay = true;
+  }
+  updateSerial = true;
+}
 
+void beamEnable() {
+  if (beamInhibited) {
+    digitalWrite(BEAM_ENABLE, LOW);
+    beamInhibited = false;
+    updateDisplay = true;
+  }
+  updateSerial = true;
+}
 
+void processSerialInput() {
+  if (Serial.available() > 0) { 
+    char c = 0;
+    char b = -1;
+    do {
+      b = Serial.read();
+      if (b != -1) {
+        c = b;
+      }
+    } 
+    while (b != -1);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+    switch (c) {
+    case 'S':
+      updateSerial = true;
+      break;
+    case 'L':
+      beamEnable();
+      break;
+    case 'X':
+      beamInhibit();
+      break;
+    }
+  }
+}
 

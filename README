@@ -1,1 +1,23 @@
 See: http://wiki.hackspace.org.uk/wiki/Projects/LHS_Graphs_and_Visualizations#Space_occupancy
+
+Serial control format
+
+  Commands - no newline after char, only last char in buffer used:
+
+    'X' - beam off
+    'L' - beam on
+    'S' - poll for status
+
+  Status response - sent on event or on poll:
+  
+    [K|A][I|O|N][X|L][count]\n
+
+    'K' - 'Okay - beams are not obstructed'
+    'A' - 'Alarm - beams are obstructed'
+    'I' - Last event was a person coming in.
+    'O' - Last event was a person going out.
+    'N' - No previous events (just started).
+    'X' - Beams are off.
+    'L' - Beams are on.
+    count - number of occupants.
+
