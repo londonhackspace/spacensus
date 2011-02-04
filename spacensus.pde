@@ -21,7 +21,7 @@ const int BREAK_VAL = LOW;
 
 const int SERIAL_BAUD = 9600;
 
-const long ALARM_TONE_HZ = 9000;
+const long ALARM_TONE_HZ = 4000;
 
 const int READY = 0;
 const int WAIT_IN = 1;
