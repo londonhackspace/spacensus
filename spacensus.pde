@@ -146,14 +146,15 @@ void checkBeamsForObstructions() {
   if (!beamInhibited) {
     beamInDurationMs = calculateBeamBreakInterval(BEAM_IN, beamInDurationMs);
     beamOutDurationMs = calculateBeamBreakInterval(BEAM_OUT, beamOutDurationMs);
-    
+
     if (beamInDurationMs >= OBSTRUCTION_INTERVAL_MS || beamOutDurationMs >= OBSTRUCTION_INTERVAL_MS) {
       alarmOn();
     } 
     else {
       alarmOff();
     }
-  } else {
+  } 
+  else {
     alarmOff();
   }
 }
@@ -200,14 +201,17 @@ void updateScreenIfRequired() {
     if (alarm) {
       lcd.setCursor(0,1);
       lcd.print("Beam obstructed!");
-    } else if (beamInhibited) {
+    } 
+    else if (beamInhibited) {
       lcd.setCursor(0,1);
       lcd.print("Beams disabled!");
-    } else {
+    } 
+    else {
       lcd.setCursor(0,1);
       if (lastIncrement > 0) {
         lcd.print("             -->");
-      } else if (lastIncrement < 0) {
+      } 
+      else if (lastIncrement < 0) {
         lcd.print("<--             ");
       } 
     }
@@ -286,7 +290,7 @@ void processSerialInput() {
     case 'X':
       beamInhibit();
       break;
-  case 'M':
+    case 'M':
       noTone(ALARM);
       break;
     case 'R':
@@ -298,4 +302,5 @@ void processSerialInput() {
     }
   }
 }
+
 
