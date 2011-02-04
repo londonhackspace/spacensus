@@ -19,9 +19,9 @@ class Handler(BaseHTTPServer.BaseHTTPRequestHandler):
         return str(self.client_address[0])
 
     def do_GET(self):
-        serial.send('S');
+        port.write('S');
         time.sleep(0.5)
-        line = ser.readline();
+        line = port.readline();
         m = re.search('[KA]{1}[ION]{1}[XL]{1}([0-9]+)', line)
         people = m.group(1);
         self.send_response(200)
