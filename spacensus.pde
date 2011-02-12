@@ -6,6 +6,9 @@ const int BEAM_ENABLE = 4;
 
 const int ALARM = 5; // PWM
 
+const int BUTTON_INCREMENT = A1;
+const int BUTTON_DECREMENT = A0;
+
 const int LCD_RS = 12;
 const int LCD_RW = 11;
 const int LCD_ENABLE = 10;
@@ -48,6 +51,14 @@ long beamOutDurationMs = 0;
 volatile long breakIntervalMs = 0;
 long resetIntervalMs = 0;
 
+int incrButtonState;
+int lastIncrButtonState = HIGH;
+int decrButtonState;
+int destIncrButtonState = HIGH;
+
+long bothButtonPressMs = 0;
+boolean beamToggled = false;
+
 LiquidCrystal lcd(LCD_RS, LCD_RW, LCD_ENABLE, LCD_D4, LCD_D5, LCD_D6, LCD_D7);
 
 void setup()
@@ -57,11 +68,18 @@ void setup()
   pinMode(BEAM_ENABLE, OUTPUT);
   pinMode(BEAM_IN, OUTPUT);
   pinMode(BEAM_OUT, OUTPUT);
+  pinMode(ALARM, OUTPUT);
+  pinMode(BUTTON_INCREMENT, OUTPUT);
+  pinMode(BUTTON_DECREMENT, OUTPUT);
   digitalWrite(BEAM_ENABLE, LOW);
   digitalWrite(BEAM_IN, LOW);
   digitalWrite(BEAM_OUT, LOW);
+  digitalWrite(BUTTON_INCREMENT, HIGH);
+  digitalWrite(BUTTON_DECREMENT, HIGH);
   pinMode(BEAM_IN, INPUT);
   pinMode(BEAM_OUT, INPUT);
+  pinMode(BUTTON_INCREMENT, INPUT);
+  pinMode(BUTTON_DECREMENT, INPUT);
 
   lcd.begin(16, 2);
   lcd.print("spacensus v0.1");
@@ -82,6 +100,7 @@ void loop()
   }
   checkBeamsForObstructions();
   processSerialInput();
+  updateButtons();
   updateScreenIfRequired();
   updateSerialStatusIfRequired();
   delay(LOOP_WAIT_MS);
@@ -118,16 +137,20 @@ void handleBeamBreak(int interrupt, int gotoState, int waitingForState, int incr
   else if (state == waitingForState) {
     detachInterrupt(interrupt);    
     if (isBreakIntervalWithinLimits()) {
-      lastIncrement = increment;
-      people += increment;
-      if (people < 0) {
-        people = 0;
-      }
-      updateDisplay = true;
-      updateSerial = true;
+      modifyPeopleCount(increment);
     }
     state = DELAY;
   }
+}
+
+void modifyPeopleCount(int increment) {
+  lastIncrement = increment;
+  people += increment;
+  if (people < 0) {
+    people = 0;
+  }
+  updateDisplay = true;
+  updateSerial = true;
 }
 
 boolean isBreakIntervalWithinLimits() {
@@ -303,4 +326,39 @@ void processSerialInput() {
   }
 }
 
+void updateButtons() {
+  int incrReading = digitalRead(BUTTON_INCREMENT);
+  int decrReading = digitalRead(BUTTON_DECREMENT);
+    
+  if (incrButtonState == HIGH && incrReading == LOW && decrReading == HIGH) {
+    modifyPeopleCount(1);
+  } else if (decrButtonState == HIGH && decrReading == LOW && incrReading == HIGH) {
+    modifyPeopleCount(-1);
+  }
+
+  incrButtonState = incrReading; 
+  decrButtonState = decrReading;
+  
+  if (decrButtonState == LOW && incrButtonState == LOW) {
+    if (!beamToggled) {
+      bothButtonPressMs += LOOP_WAIT_MS;
+    }
+  } else {
+    beamToggled = false;
+    bothButtonPressMs = 0;
+  }
+  
+  if (bothButtonPressMs >= 5000 && !beamToggled) {
+    toggleBeam();
+  }
+}
+
+void toggleBeam() {
+  beamToggled = true;
+  if (beamInhibited) {
+    beamEnable();
+  } else {
+    beamInhibit();
+  }
+}
 
