@@ -6,8 +6,8 @@ const int BEAM_ENABLE = 4;
 
 const int ALARM = 5; // PWM
 
-const int BUTTON_INCREMENT = A1;
-const int BUTTON_DECREMENT = A0;
+const int BUTTON_INCREMENT = A0;
+const int BUTTON_DECREMENT = A1;
 
 const int LCD_RS = 12;
 const int LCD_RW = 11;
@@ -33,8 +33,12 @@ const int DELAY = 3;
 
 const long LOOP_WAIT_MS = 50;
 
-const long MIN_PERSON_INTERVAL_MS = 200;
-const long MAX_PERSON_INTERVAL_MS = 800;
+//const long BEAM_SEPERATION_MM = 240;
+//const long MIN_WALKING_SPEED_MM_PER_S = 1300;
+//const long MAX_WALKING_SPEED_MM_PER_S = 2500;
+
+const long MIN_PERSON_INTERVAL_MS = 100; //( ( MIN_WALKING_SPEED_MM_PER_S / 1000 ) * BEAM_SEPERATION_MM);
+const long MAX_PERSON_INTERVAL_MS = 880; //( ( MAX_WALKING_SPEED_MM_PER_S / 1000 ) * BEAM_SEPERATION_MM);
 const long DELAY_BEFORE_RESET_MS = 1000;
 const long OBSTRUCTION_INTERVAL_MS = 5000;
 
@@ -49,7 +53,7 @@ boolean beamInhibited = false;
 long beamInDurationMs = 0;
 long beamOutDurationMs = 0;
 volatile long breakIntervalMs = 0;
-long resetIntervalMs = 0;
+long resetIntervalMs = 0;//-1850;
 
 int incrButtonState;
 int lastIncrButtonState = HIGH;
@@ -139,6 +143,7 @@ void handleBeamBreak(int interrupt, int gotoState, int waitingForState, int incr
     if (isBreakIntervalWithinLimits()) {
       modifyPeopleCount(increment);
     }
+    resetIntervalMs = DELAY_BEFORE_RESET_MS - 400;
     state = DELAY;
   }
 }
@@ -150,7 +155,7 @@ void modifyPeopleCount(int increment) {
     people = 0;
   }
   updateDisplay = true;
-  updateSerial = true;
+  //updateSerial = true;
 }
 
 boolean isBreakIntervalWithinLimits() {
@@ -200,7 +205,7 @@ void alarmOn () {
     alarm = true;
     tone(ALARM, ALARM_TONE_HZ);
     updateDisplay = true;
-    updateSerial = true;
+    //updateSerial = true;
   }
 }
 
@@ -209,7 +214,7 @@ void alarmOff() {
     alarm = false;
     noTone(ALARM);
     updateDisplay = true;
-    updateSerial = true;
+    //updateSerial = true;
   }
 }
 
@@ -279,7 +284,7 @@ void beamInhibit() {
     beamInhibited = true;
     updateDisplay = true;
   }
-  updateSerial = true;
+  //updateSerial = true;
 }
 
 void beamEnable() {
@@ -288,7 +293,7 @@ void beamEnable() {
     beamInhibited = false;
     updateDisplay = true;
   }
-  updateSerial = true;
+  //updateSerial = true;
 }
 
 void processSerialInput() {
@@ -329,25 +334,27 @@ void processSerialInput() {
 void updateButtons() {
   int incrReading = digitalRead(BUTTON_INCREMENT);
   int decrReading = digitalRead(BUTTON_DECREMENT);
-    
+
   if (incrButtonState == HIGH && incrReading == LOW && decrReading == HIGH) {
     modifyPeopleCount(1);
-  } else if (decrButtonState == HIGH && decrReading == LOW && incrReading == HIGH) {
+  } 
+  else if (decrButtonState == HIGH && decrReading == LOW && incrReading == HIGH) {
     modifyPeopleCount(-1);
   }
 
   incrButtonState = incrReading; 
   decrButtonState = decrReading;
-  
+
   if (decrButtonState == LOW && incrButtonState == LOW) {
     if (!beamToggled) {
       bothButtonPressMs += LOOP_WAIT_MS;
     }
-  } else {
+  } 
+  else {
     beamToggled = false;
     bothButtonPressMs = 0;
   }
-  
+
   if (bothButtonPressMs >= 5000 && !beamToggled) {
     toggleBeam();
   }
@@ -357,8 +364,10 @@ void toggleBeam() {
   beamToggled = true;
   if (beamInhibited) {
     beamEnable();
-  } else {
+  } 
+  else {
     beamInhibit();
   }
 }
+
 
