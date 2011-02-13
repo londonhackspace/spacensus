@@ -10,7 +10,7 @@ Serial control format
     'R' - reset counter
     'M' - silence the current alarm
 
-  Status response - sent on event or on poll:
+  Status response - sent on poll:
   
     [K|A][I|O|N][X|L][count]\n
 
