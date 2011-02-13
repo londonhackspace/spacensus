@@ -324,8 +324,14 @@ void processSerialInput() {
     case 'R':
       people = 0;
       lastIncrement = 0;
+      updateDisplay = true;
       state = DELAY;
-      updateSerial = true;
+      break;
+    case 'I':
+      modifyPeopleCount(1);
+      break;
+    case 'D':
+      modifyPeopleCount(-1);
       break;
     }
   }

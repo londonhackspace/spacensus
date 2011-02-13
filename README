@@ -8,6 +8,8 @@ Serial control format
     'L' - beam on
     'S' - poll for status
     'R' - reset counter
+    'I' - increment
+    'D' - decrement
     'M' - silence the current alarm
 
   Status response - sent on poll:
