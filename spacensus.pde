@@ -40,7 +40,7 @@ const long LOOP_WAIT_MS = 50;
 const long MIN_PERSON_INTERVAL_MS = 100; //( ( MIN_WALKING_SPEED_MM_PER_S / 1000 ) * BEAM_SEPERATION_MM);
 const long MAX_PERSON_INTERVAL_MS = 880; //( ( MAX_WALKING_SPEED_MM_PER_S / 1000 ) * BEAM_SEPERATION_MM);
 const long DELAY_BEFORE_RESET_MS = 1000;
-const long OBSTRUCTION_INTERVAL_MS = 5000;
+const long OBSTRUCTION_INTERVAL_MS = 15000;
 
 volatile boolean updateDisplay = true;
 volatile boolean updateSerial = true;
@@ -308,9 +308,9 @@ void processSerialInput() {
     } 
     while (b != -1);
 
+    updateSerial = true;
     switch (c) {
     case 'S':
-      updateSerial = true;
       break;
     case 'L':
       beamEnable();
@@ -332,6 +332,9 @@ void processSerialInput() {
       break;
     case 'D':
       modifyPeopleCount(-1);
+      break;
+    default:
+      updateSerial = false;
       break;
     }
   }
@@ -375,5 +378,6 @@ void toggleBeam() {
     beamInhibit();
   }
 }
+
 
 

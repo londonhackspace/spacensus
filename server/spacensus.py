@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import BaseHTTPServer, serial, ConfigParser, sys, re, time
+import BaseHTTPServer, serial, ConfigParser, sys, re, time, urlparse, urllib
 
 config = ConfigParser.ConfigParser()
 config.read((
@@ -19,16 +19,19 @@ class Handler(BaseHTTPServer.BaseHTTPRequestHandler):
         return str(self.client_address[0])
 
     def do_GET(self):
-        port.write('S');
+        url = urlparse.urlparse(self.path)
+        path = url.path
+        path = path.lstrip('/')
+        message = urllib.unquote(path)
+        message = message[:1]
+    
+        port.write(message);
         time.sleep(0.5)
         line = port.readline();
-        m = re.search('[KA]{1}[ION]{1}[XL]{1}([0-9]+)', line)
-        people = m.group(1);
         self.send_response(200)
         self.send_header('Content-type', 'text/plain')
         self.end_headers()
-        self.wfile.write('people:')
-        self.wfile.write(people)
+        self.wfile.write(line)
         self.wfile.write('\n')
         self.wfile.flush()
 
