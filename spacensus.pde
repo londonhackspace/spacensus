@@ -126,24 +126,26 @@ void ready() {
 }
 
 void breakIn() {
-  handleBeamBreak(INTERRUPT_IN, WAIT_IN, WAIT_OUT, -1);
+  handleBeamBreak(INTERRUPT_IN, WAIT_IN, WAIT_OUT, -1, BEAM_OUT);
 }
 
 void breakOut() {
-  handleBeamBreak(INTERRUPT_OUT, WAIT_OUT, WAIT_IN, 1);
+  handleBeamBreak(INTERRUPT_OUT, WAIT_OUT, WAIT_IN, 1, BEAM_IN);
 }
 
-void handleBeamBreak(int interrupt, int gotoState, int waitingForState, int increment) {
+void handleBeamBreak(int interrupt, int gotoState, int waitingForState, int increment, int otherBeam) {
   if (state == READY) {
-    detachInterrupt(interrupt);    
-    state = gotoState;
+    if (digitalRead(otherBeam) != BREAK_VAL) {
+      detachInterrupt(interrupt);    
+      state = gotoState;
+    }
   } 
   else if (state == waitingForState) {
     detachInterrupt(interrupt);    
     if (isBreakIntervalWithinLimits()) {
       modifyPeopleCount(increment);
     }
-    resetIntervalMs = DELAY_BEFORE_RESET_MS - 400;
+    resetIntervalMs = DELAY_BEFORE_RESET_MS - 150;
     state = DELAY;
   }
 }
@@ -155,7 +157,6 @@ void modifyPeopleCount(int increment) {
     people = 0;
   }
   updateDisplay = true;
-  //updateSerial = true;
 }
 
 boolean isBreakIntervalWithinLimits() {
@@ -205,7 +206,6 @@ void alarmOn () {
     alarm = true;
     tone(ALARM, ALARM_TONE_HZ);
     updateDisplay = true;
-    //updateSerial = true;
   }
 }
 
@@ -214,7 +214,6 @@ void alarmOff() {
     alarm = false;
     noTone(ALARM);
     updateDisplay = true;
-    //updateSerial = true;
   }
 }
 
@@ -284,7 +283,6 @@ void beamInhibit() {
     beamInhibited = true;
     updateDisplay = true;
   }
-  //updateSerial = true;
 }
 
 void beamEnable() {
@@ -293,7 +291,6 @@ void beamEnable() {
     beamInhibited = false;
     updateDisplay = true;
   }
-  //updateSerial = true;
 }
 
 void processSerialInput() {
@@ -378,6 +375,4 @@ void toggleBeam() {
     beamInhibit();
   }
 }
-
-
 
