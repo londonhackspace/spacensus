@@ -17,7 +17,10 @@ function event {
       ;;
     O)
       echo "Someone walked out"
-      ;;    
+      ;;
+    N)
+      echo "No-one has come in or out"
+      ;;  
     *)
       echo "Unknown response"
   esac
