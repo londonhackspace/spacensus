@@ -38,9 +38,9 @@ const long LOOP_WAIT_MS = 50;
 //const long MAX_WALKING_SPEED_MM_PER_S = 2500;
 
 const long MIN_PERSON_INTERVAL_MS = 100; //( ( MIN_WALKING_SPEED_MM_PER_S / 1000 ) * BEAM_SEPERATION_MM);
-const long MAX_PERSON_INTERVAL_MS = 880; //( ( MAX_WALKING_SPEED_MM_PER_S / 1000 ) * BEAM_SEPERATION_MM);
+const long MAX_PERSON_INTERVAL_MS = 500; //( ( MAX_WALKING_SPEED_MM_PER_S / 1000 ) * BEAM_SEPERATION_MM);
 const long DELAY_BEFORE_RESET_MS = 1000;
-const long OBSTRUCTION_INTERVAL_MS = 15000;
+const long OBSTRUCTION_INTERVAL_MS = 10000;
 
 volatile boolean updateDisplay = true;
 volatile boolean updateSerial = true;
@@ -86,7 +86,7 @@ void setup()
   pinMode(BUTTON_DECREMENT, INPUT);
 
   lcd.begin(16, 2);
-  lcd.print("spacensus v0.1");
+  lcd.print("spacensus v0.3");
 }
 
 void loop()
@@ -145,7 +145,7 @@ void handleBeamBreak(int interrupt, int gotoState, int waitingForState, int incr
     if (isBreakIntervalWithinLimits()) {
       modifyPeopleCount(increment);
     }
-    resetIntervalMs = DELAY_BEFORE_RESET_MS - 150;
+    resetIntervalMs = DELAY_BEFORE_RESET_MS - 100;
     state = DELAY;
   }
 }
