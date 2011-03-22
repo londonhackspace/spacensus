@@ -1,4 +1,6 @@
-#include <LiquidCrystal.h>
+#include <Dogm.h>
+#include "DisplayPeopleSprites.h"
+#include "DisplayArrowSprites.h"
 
 const int BEAM_IN = 2; // interrupt
 const int BEAM_OUT = 3; // interrupt
@@ -9,13 +11,7 @@ const int ALARM = 5; // PWM
 const int BUTTON_INCREMENT = A0;
 const int BUTTON_DECREMENT = A1;
 
-const int LCD_RS = 12;
-const int LCD_RW = 11;
-const int LCD_ENABLE = 10;
-const int LCD_D4 = 9;
-const int LCD_D5 = 8;
-const int LCD_D6 = 7;
-const int LCD_D7 = 6;
+const int LCD_PIN = 9;
 
 const int INTERRUPT_IN = 0;
 const int INTERRUPT_OUT = 1;
@@ -42,11 +38,13 @@ const long MAX_PERSON_INTERVAL_MS = 500; //( ( MAX_WALKING_SPEED_MM_PER_S / 1000
 const long DELAY_BEFORE_RESET_MS = 1000;
 const long OBSTRUCTION_INTERVAL_MS = 10000;
 
+const long ONE_MINUTE_IN_MS = 300;
+
 volatile boolean updateDisplay = true;
 volatile boolean updateSerial = true;
-volatile int people = 0;
+volatile int people = 1;
 volatile int state = DELAY;
-volatile int lastIncrement = 0;
+volatile int lastIncrement = -1;
 boolean alarm = false;
 boolean beamInhibited = false;
 
@@ -63,7 +61,18 @@ int destIncrButtonState = HIGH;
 long bothButtonPressMs = 0;
 boolean beamToggled = false;
 
-LiquidCrystal lcd(LCD_RS, LCD_RW, LCD_ENABLE, LCD_D4, LCD_D5, LCD_D6, LCD_D7);
+int history[128];
+int lastTenMinutes[10];
+int maximums[128];
+int maximum = 0;
+int walkCycle = 0;
+int warningCycle = 0;
+long screenTimeout = 0;
+long minuteCounter = 0;
+int minutesRolled = 0;
+float scaleFactor = 1.0;
+
+Dogm dogm(LCD_PIN);
 
 void setup()
 {
@@ -85,8 +94,14 @@ void setup()
   pinMode(BUTTON_INCREMENT, INPUT);
   pinMode(BUTTON_DECREMENT, INPUT);
 
-  lcd.begin(16, 2);
-  lcd.print("spacensus v0.3");
+  for (int x = 0; x < 128; x++) {
+    history[x] = 0;
+    maximums[x] = 0;
+  }
+  for (int x = 0; x < 10; x++) {
+    lastTenMinutes[x] = 0;
+  }
+
 }
 
 void loop()
@@ -105,6 +120,7 @@ void loop()
   checkBeamsForObstructions();
   processSerialInput();
   updateButtons();
+  updateHistory();
   updateScreenIfRequired();
   updateSerialStatusIfRequired();
   delay(LOOP_WAIT_MS);
@@ -156,6 +172,7 @@ void modifyPeopleCount(int increment) {
   if (people < 0) {
     people = 0;
   }
+  maximum = max(maximum,people);
   updateDisplay = true;
 }
 
@@ -214,36 +231,6 @@ void alarmOff() {
     alarm = false;
     noTone(ALARM);
     updateDisplay = true;
-  }
-}
-
-void updateScreenIfRequired() {
-  if (updateDisplay) { 
-    if (state != DELAY) {
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("Occupancy: ");
-      lcd.print(people, DEC);   
-    }
-    if (alarm) {
-      lcd.setCursor(0,1);
-      lcd.print("Beam obstructed!");
-    } 
-    else if (beamInhibited) {
-      lcd.setCursor(0,1);
-      lcd.print("Beams disabled!");
-    } 
-    else {
-      lcd.setCursor(0,1);
-      if (lastIncrement > 0) {
-        lcd.print("             -->");
-      } 
-      else if (lastIncrement < 0) {
-        lcd.print("<--             ");
-      } 
-    }
-
-    updateDisplay = false;
   }
 }
 
@@ -373,6 +360,130 @@ void toggleBeam() {
   } 
   else {
     beamInhibit();
+  }
+}
+
+void updateScreenIfRequired() {
+  screenTimeout += LOOP_WAIT_MS;
+  if (screenTimeout > 250) {
+    screenTimeout = 0;
+    updateDisplay = true;
+  }
+  if (updateDisplay) {
+    dogm.start();
+    do {
+      drawHeader();
+      drawIndicator();
+      drawGraph();
+      drawFooter();
+    } 
+    while( dogm.next() );
+    walkCycle++;
+    if (walkCycle == 7 ) {
+      walkCycle = 0;
+    }
+    warningCycle++;
+    if (warningCycle == 9 ) {
+      warningCycle = 0;
+    }
+    updateDisplay = false;
+  }
+}
+
+void drawGraph() {
+  dogm.drawLine(0, 13, 0, 46);
+  for (int x = 0; x < 128; x++) {
+    int level = (int) ((float) history[x] * scaleFactor);
+    dogm.drawLine(x, 13, x, 13 + level);
+  }
+}
+
+void drawFooter() {
+  dogm.setFont(font_6x9);
+  dogm.setXY(0,1);
+  dogm.setRot(0);
+
+  if (warningCycle > 4 && (alarm || beamInhibited)) {
+    if (alarm) {
+      dogm.drawStr("Beam obstructed!");
+    } 
+    else if (beamInhibited) { 
+      dogm.drawStr("Beams disabled!");
+    } 
+  } 
+  else {
+    drawTextAndNumber("24hr maximum: ", maximum);
+  }
+}
+
+void drawHeader() {
+  dogm.setFont(font_7x13);
+  dogm.setXY(0,54);
+  dogm.setRot(0);
+  drawTextAndNumber("Occupancy: ", people);
+}
+
+void drawIndicator() {
+  if (lastIncrement < 0) {
+    dogm.setBitmap(101, 62, ARROW_BITMAPS, ARROW_WIDTH, ARROW_HEIGHT);
+    dogm.setBitmap(120, 63, OUT_PEOPLE_BITMAPS + walkCycle * PEOPLE_CHARS, PEOPLE_WIDTH, PEOPLE_HEIGHT);
+
+  } 
+  else if (lastIncrement > 0) {
+    dogm.setBitmap(116, 62, ARROW_BITMAPS + ARROW_CHARS, ARROW_WIDTH, ARROW_HEIGHT);
+    dogm.setBitmap(101, 63, IN_PEOPLE_BITMAPS + walkCycle * PEOPLE_CHARS, PEOPLE_WIDTH, PEOPLE_HEIGHT);
+  } 
+}
+
+void drawTextAndNumber(String message, int number) {
+  message += String(number, DEC);
+  char charBuffer[20];
+  message.toCharArray(charBuffer, 20);
+  dogm.drawStr(charBuffer);
+}
+
+void updateHistory() {
+  if (minuteCounter >= ONE_MINUTE_IN_MS) {
+    int sum = 0;
+    int localMaximum = 0;
+    int localMaximumAvg = 0;
+    people = random(0, 150);
+    for (int x = 0; x < 9; x++) {
+      lastTenMinutes[x] = lastTenMinutes[x + 1];
+      sum += lastTenMinutes[x];
+      localMaximum = max(localMaximum, lastTenMinutes[x]);
+    }
+    lastTenMinutes[9] = people;
+    sum += lastTenMinutes[9];
+    localMaximum = max(localMaximum, lastTenMinutes[9]);
+    minutesRolled++;
+    minuteCounter = 0;
+    if (minutesRolled >= 10) {
+      lastIncrement = 1 - random(0, 3);
+      maximum = 0;
+      int average = sum / 10;
+      for (int x = 0; x < 127; x++) {
+        history[x] = history[x + 1];
+        localMaximumAvg = max(localMaximumAvg, history[x]);
+        maximums[x] = maximums[x + 1];
+        maximum = max(maximum, maximums[x]);
+      }
+      history[127] = average;
+      localMaximumAvg = max(localMaximumAvg, history[127]);
+      maximums[127] = localMaximum;
+      maximum = max(maximum, history[127]);
+      minutesRolled = 0;
+      if (localMaximumAvg < 1) {
+        scaleFactor = 1.0;
+      } 
+      else {
+        scaleFactor = 33.0 / (float) localMaximumAvg;
+      }
+      updateDisplay = true;
+    }
+  } 
+  else {
+    minuteCounter += LOOP_WAIT_MS;
   }
 }
 
