@@ -1,3 +1,10 @@
+/*
+ * Disclaimer:
+ *
+ * This is both a hack and my first Arduino project. The quality of this
+ * Code is not up to my Java programming standards so please don't judge
+ * me by it!
+ */
 #include <Dogm.h>
 #include "DisplayPeopleSprites.h"
 #include "DisplayArrowSprites.h"
