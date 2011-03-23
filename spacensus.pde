@@ -157,6 +157,7 @@ void breakOut() {
 }
 
 void handleBeamBreak(int interrupt, int gotoState, int waitingForState, int increment, int otherBeam) {
+  // update interval here using millis()
   if (state == READY) {
     if (digitalRead(otherBeam) != BREAK_VAL) {
       detachInterrupt(interrupt);    
