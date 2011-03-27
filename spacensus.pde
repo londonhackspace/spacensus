@@ -1,6 +1,16 @@
+/*
+ * Disclaimer:
+ *
+ * This is both a hack and my first Arduino project. The quality of this
+ * Code is not up to my Java programming standards so please don't judge
+ * me by it!
+ */
 #include <Dogm.h>
+#include <MsTimer2.h>
 #include "DisplayPeopleSprites.h"
 #include "DisplayArrowSprites.h"
+
+const unsigned long MAX_LONG = (2^32) - 1;
 
 const int BEAM_IN = 2; // interrupt
 const int BEAM_OUT = 3; // interrupt
@@ -33,25 +43,24 @@ const long LOOP_WAIT_MS = 50;
 //const long MIN_WALKING_SPEED_MM_PER_S = 1300;
 //const long MAX_WALKING_SPEED_MM_PER_S = 2500;
 
-const long MIN_PERSON_INTERVAL_MS = 100; //( ( MIN_WALKING_SPEED_MM_PER_S / 1000 ) * BEAM_SEPERATION_MM);
-const long MAX_PERSON_INTERVAL_MS = 500; //( ( MAX_WALKING_SPEED_MM_PER_S / 1000 ) * BEAM_SEPERATION_MM);
-const long DELAY_BEFORE_RESET_MS = 1000;
+const long MIN_PERSON_INTERVAL_MS = 7; //( ( MIN_WALKING_SPEED_MM_PER_S / 1000 ) * BEAM_SEPERATION_MM);
+const long MAX_PERSON_INTERVAL_MS = 70; //( ( MAX_WALKING_SPEED_MM_PER_S / 1000 ) * BEAM_SEPERATION_MM);
+const long DELAY_BEFORE_RESET_MS = 750;
 const long OBSTRUCTION_INTERVAL_MS = 10000;
 
-const long ONE_MINUTE_IN_MS = 300;
+const long ONE_MINUTE_IN_MS = 60000;
 
 volatile boolean updateDisplay = true;
 volatile boolean updateSerial = true;
-volatile int people = 1;
+volatile int people = 0;
 volatile int state = DELAY;
-volatile int lastIncrement = -1;
+volatile int lastIncrement = 0;
 boolean alarm = false;
 boolean beamInhibited = false;
 
 long beamInDurationMs = 0;
 long beamOutDurationMs = 0;
-volatile long breakIntervalMs = 0;
-long resetIntervalMs = 0;//-1850;
+volatile unsigned long breakStartMs = 0;
 
 int incrButtonState;
 int lastIncrButtonState = HIGH;
@@ -101,22 +110,11 @@ void setup()
   for (int x = 0; x < 10; x++) {
     lastTenMinutes[x] = 0;
   }
-
+  ready();
 }
 
 void loop()
 {
-  switch (state) {
-  case DELAY:
-    handleResetDelay();
-    break;
-  case WAIT_OUT:
-    handleBreakInterval();
-    break;
-  case WAIT_IN:
-    handleBreakInterval();
-    break;
-  }
   checkBeamsForObstructions();
   processSerialInput();
   updateButtons();
@@ -126,19 +124,13 @@ void loop()
   delay(LOOP_WAIT_MS);
 }
 
-void handleBreakInterval() {
-  breakIntervalMs += LOOP_WAIT_MS;
-  if (breakIntervalMs > DELAY_BEFORE_RESET_MS) {
-    ready();
-  }
-}
-
 void ready() {
+  MsTimer2::stop();
   updateDisplay = true;
   state = READY;
-  breakIntervalMs = 0;
   attachInterrupt(INTERRUPT_IN, breakIn, BREAK_MODE);
   attachInterrupt(INTERRUPT_OUT, breakOut, BREAK_MODE);
+  //Serial.println("ready, interrupts attached");
 }
 
 void breakIn() {
@@ -150,20 +142,33 @@ void breakOut() {
 }
 
 void handleBeamBreak(int interrupt, int gotoState, int waitingForState, int increment, int otherBeam) {
+  unsigned long now = millis();
   if (state == READY) {
     if (digitalRead(otherBeam) != BREAK_VAL) {
-      detachInterrupt(interrupt);    
+      detachInterrupt(interrupt);
+      //  Serial.println("detachInterrupt first, timer started");
       state = gotoState;
+      MsTimer2::set(MAX_PERSON_INTERVAL_MS, timerTransitionToReady);
+      breakStartMs = now;
+      MsTimer2::start();
     }
   } 
   else if (state == waitingForState) {
-    detachInterrupt(interrupt);    
-    if (isBreakIntervalWithinLimits()) {
+    MsTimer2::stop();
+    detachInterrupt(interrupt);
+    //Serial.println("timer stopped, detachInterrupt second, timer started");
+    state = DELAY;
+    if (isBreakIntervalWithinLimits(now)) {
       modifyPeopleCount(increment);
     }
-    resetIntervalMs = DELAY_BEFORE_RESET_MS - 100;
-    state = DELAY;
+    MsTimer2::set(DELAY_BEFORE_RESET_MS, timerTransitionToReady);
+    MsTimer2::start();
   }
+}
+
+void timerTransitionToReady() {
+  //Serial.println("timer fired ready()");
+  ready();
 }
 
 void modifyPeopleCount(int increment) {
@@ -176,16 +181,9 @@ void modifyPeopleCount(int increment) {
   updateDisplay = true;
 }
 
-boolean isBreakIntervalWithinLimits() {
-  return breakIntervalMs >= MIN_PERSON_INTERVAL_MS && breakIntervalMs <= MAX_PERSON_INTERVAL_MS;
-}
-
-void handleResetDelay() {
-  resetIntervalMs += LOOP_WAIT_MS;
-  if (resetIntervalMs >= DELAY_BEFORE_RESET_MS) {
-    resetIntervalMs = 0;
-    ready();
-  }
+boolean isBreakIntervalWithinLimits(unsigned long breakStopMs) {
+  unsigned long breakIntervalMs = absTimeDifference(breakStartMs, breakStopMs);
+  return breakIntervalMs >= MIN_PERSON_INTERVAL_MS;
 }
 
 void checkBeamsForObstructions() {
@@ -447,7 +445,6 @@ void updateHistory() {
     int sum = 0;
     int localMaximum = 0;
     int localMaximumAvg = 0;
-    people = random(0, 150);
     for (int x = 0; x < 9; x++) {
       lastTenMinutes[x] = lastTenMinutes[x + 1];
       sum += lastTenMinutes[x];
@@ -459,7 +456,6 @@ void updateHistory() {
     minutesRolled++;
     minuteCounter = 0;
     if (minutesRolled >= 10) {
-      lastIncrement = 1 - random(0, 3);
       maximum = 0;
       int average = sum / 10;
       for (int x = 0; x < 127; x++) {
@@ -486,4 +482,17 @@ void updateHistory() {
     minuteCounter += LOOP_WAIT_MS;
   }
 }
+
+long absTimeDifference(long past, long present) {
+  if (past < present) {
+    return present - past;
+  } 
+  else if (past > present) {
+    return (MAX_LONG - past) + present;
+  } 
+  else {
+    return 0;
+  }
+}
+
 
