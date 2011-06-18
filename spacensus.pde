@@ -148,7 +148,7 @@ void handleBeamBreak(int interrupt, int gotoState, int waitingForState, int incr
     if (digitalRead(otherBeam) != BREAK_VAL) {
       detachInterrupt(interrupt);
       Serial.print("RDY->WT("
-        Serial.print(waitingForState, DEC);
+      Serial.print(waitingForState, DEC);
       Serial.print") INT(");
       Serial.print(interrupt, DEC);
       Serial.println(")");
@@ -160,14 +160,14 @@ void handleBeamBreak(int interrupt, int gotoState, int waitingForState, int incr
   } 
   else if (state == waitingForState) {
     MsTimer2::stop();
-    detachInterrupt(interrupt);
-    Serial.print("RDY->DLY INT(");
-    Serial.print(interrupt, DEC);
-    Serial.println(")");
     state = DELAY;
     if (isBreakIntervalWithinLimits(now)) {
       modifyPeopleCount(increment);
     }
+    detachInterrupt(interrupt);
+    Serial.print("RDY->DLY INT(");
+    Serial.print(interrupt, DEC);
+    Serial.println(")");
     MsTimer2::set(DELAY_BEFORE_RESET_MS, timerTransitionToReady);
     MsTimer2::start();
   }
