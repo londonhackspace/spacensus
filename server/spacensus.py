@@ -2,13 +2,9 @@
 
 import threading, logging, BaseHTTPServer, serial, ConfigParser, sys, re, time, urlparse, urllib
 
-logger = logging.getLogger("spacensus")
-logger.setLevel(logging.DEBUG)
-ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
-formatter = logging.Formatter("%(asctime)s - %(message)s")
-ch.setFormatter(formatter)
-logger.addHandler(ch)
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s %(message)s',
+                    filename='/var/log/spacensus/spacensus.log')
 
 config = ConfigParser.ConfigParser()
 config.read((
@@ -18,16 +14,17 @@ config.read((
 ))
 
 serialPort = config.get('spacensus', 'serialport')
-port = serial.Serial(serialPort, 9600, timeout=1)
+port = serial.Serial(serialPort, 9600, timeout=None)
 
 line = ""
 
 class SerialReader(threading.Thread):
 
     def run(self):
+        global line
         while 1:
-            line = port.readline()
-            logger.debug("spacensus event: %s", line)
+            line = port.readline().strip()
+            logging.debug("event: %s", line)
 
 class Handler(BaseHTTPServer.BaseHTTPRequestHandler):
 
@@ -36,15 +33,15 @@ class Handler(BaseHTTPServer.BaseHTTPRequestHandler):
         return str(self.client_address[0])
 
     def do_GET(self):
+        global line
         url = urlparse.urlparse(self.path)
         path = url.path
         path = path.lstrip('/')
         message = urllib.unquote(path)
         message = message[:1]
-        logger.info("sending command: %s", message)
+        logging.info("sending command: %s", message)
         
         port.write(message)
-        time.sleep(1.0)
         self.send_response(200)
         self.send_header('Content-type', 'text/plain')
         self.end_headers()
