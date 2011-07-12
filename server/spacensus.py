@@ -23,8 +23,10 @@ class SerialReader(threading.Thread):
     def run(self):
         global line
         while 1:
-            line = port.readline().strip()
-            logging.debug("event: %s", line)
+            event = port.readline().strip()
+            logging.debug("event: %s", event)
+            if event.startswith('K') or event.startswith('A') :
+                line = event
 
 class Handler(BaseHTTPServer.BaseHTTPRequestHandler):
 
