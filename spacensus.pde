@@ -127,10 +127,11 @@ void loop()
 void ready() {
   MsTimer2::stop();
   updateDisplay = true;
+  updateSerial = true;
   state = READY;
   attachInterrupt(INTERRUPT_IN, breakIn, BREAK_MODE);
   attachInterrupt(INTERRUPT_OUT, breakOut, BREAK_MODE);
-  //Serial.println("ready, interrupts attached");
+  Serial.println("RDY");
 }
 
 void breakIn() {
@@ -146,7 +147,11 @@ void handleBeamBreak(int interrupt, int gotoState, int waitingForState, int incr
   if (state == READY) {
     if (digitalRead(otherBeam) != BREAK_VAL) {
       detachInterrupt(interrupt);
-      //  Serial.println("detachInterrupt first, timer started");
+      Serial.print("RDY->WT("
+      Serial.print(waitingForState, DEC);
+      Serial.print") INT(");
+      Serial.print(interrupt, DEC);
+      Serial.println(")");
       state = gotoState;
       MsTimer2::set(MAX_PERSON_INTERVAL_MS, timerTransitionToReady);
       breakStartMs = now;
@@ -155,19 +160,21 @@ void handleBeamBreak(int interrupt, int gotoState, int waitingForState, int incr
   } 
   else if (state == waitingForState) {
     MsTimer2::stop();
-    detachInterrupt(interrupt);
-    //Serial.println("timer stopped, detachInterrupt second, timer started");
     state = DELAY;
     if (isBreakIntervalWithinLimits(now)) {
       modifyPeopleCount(increment);
     }
+    detachInterrupt(interrupt);
+    Serial.print("RDY->DLY INT(");
+    Serial.print(interrupt, DEC);
+    Serial.println(")");
     MsTimer2::set(DELAY_BEFORE_RESET_MS, timerTransitionToReady);
     MsTimer2::start();
   }
 }
 
 void timerTransitionToReady() {
-  //Serial.println("timer fired ready()");
+  Serial.println("DLY->RDY");
   ready();
 }
 
@@ -179,6 +186,7 @@ void modifyPeopleCount(int increment) {
   }
   maximum = max(maximum,people);
   updateDisplay = true;
+  updateSerial = true;
 }
 
 boolean isBreakIntervalWithinLimits(unsigned long breakStopMs) {
@@ -221,6 +229,7 @@ void alarmOn () {
     alarm = true;
     tone(ALARM, ALARM_TONE_HZ);
     updateDisplay = true;
+    updateSerial = true;
   }
 }
 
@@ -229,6 +238,7 @@ void alarmOff() {
     alarm = false;
     noTone(ALARM);
     updateDisplay = true;
+    updateSerial = true;
   }
 }
 
@@ -267,6 +277,7 @@ void beamInhibit() {
     digitalWrite(BEAM_ENABLE, HIGH);
     beamInhibited = true;
     updateDisplay = true;
+    updateSerial = true;
   }
 }
 
@@ -275,6 +286,7 @@ void beamEnable() {
     digitalWrite(BEAM_ENABLE, LOW);
     beamInhibited = false;
     updateDisplay = true;
+    updateSerial = true;
   }
 }
 
@@ -494,5 +506,6 @@ long absTimeDifference(long past, long present) {
     return 0;
   }
 }
+
 
 
