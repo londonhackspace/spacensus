@@ -55,6 +55,8 @@ volatile boolean updateSerial = true;
 volatile int people = 0;
 volatile int state = DELAY;
 volatile int lastIncrement = 0;
+volatile boolean wrongBeam = false;
+volatile boolean wrongState = false;
 boolean alarm = false;
 boolean beamInhibited = false;
 
@@ -111,6 +113,7 @@ void setup()
     lastTenMinutes[x] = 0;
   }
   ready();
+  updateSerial = true;
 }
 
 void loop()
@@ -127,11 +130,11 @@ void loop()
 void ready() {
   MsTimer2::stop();
   updateDisplay = true;
-  updateSerial = true;
   state = READY;
+  wrongBeam = false;
+  wrongState = false;
   attachInterrupt(INTERRUPT_IN, breakIn, BREAK_MODE);
   attachInterrupt(INTERRUPT_OUT, breakOut, BREAK_MODE);
-  Serial.println("RDY");
 }
 
 void breakIn() {
@@ -142,39 +145,72 @@ void breakOut() {
   handleBeamBreak(INTERRUPT_OUT, WAIT_OUT, WAIT_IN, 1, BEAM_IN);
 }
 
+String getDirection(int beam) {
+  String dir;
+  if (beam == BEAM_IN) {
+    dir = "Outer";
+  } else {
+    dir = "Inner"; 
+  }
+  return dir;
+}
+
+String getDirectionInv(int beam) {
+  String dir;
+  if (beam == BEAM_IN) {
+    dir = "Inner";
+  } else {
+    dir = "Outer"; 
+  }
+  return dir;
+}
+
 void handleBeamBreak(int interrupt, int gotoState, int waitingForState, int increment, int otherBeam) {
   unsigned long now = millis();
   if (state == READY) {
     if (digitalRead(otherBeam) != BREAK_VAL) {
       detachInterrupt(interrupt);
-      Serial.print("RDY->WT("
-      Serial.print(waitingForState, DEC);
-      Serial.print") INT(");
-      Serial.print(interrupt, DEC);
-      Serial.println(")");
+      Serial.print("Ready -> WaitForBreak");
+      Serial.println(getDirection(otherBeam));
       state = gotoState;
       MsTimer2::set(MAX_PERSON_INTERVAL_MS, timerTransitionToReady);
       breakStartMs = now;
       MsTimer2::start();
+    } else {
+      wrongBeam = true; 
     }
   } 
   else if (state == waitingForState) {
     MsTimer2::stop();
     state = DELAY;
+    boolean tooLong = true;
     if (isBreakIntervalWithinLimits(now)) {
       modifyPeopleCount(increment);
+      tooLong = false;
     }
     detachInterrupt(interrupt);
-    Serial.print("RDY->DLY INT(");
-    Serial.print(interrupt, DEC);
-    Serial.println(")");
+    Serial.print("GotBreak");
+    Serial.print(getDirectionInv(otherBeam));
+    Serial.print(" -> Delay");
+    if (tooLong) {
+      Serial.print(" (too long)");  
+    }
+    Serial.println("");
     MsTimer2::set(DELAY_BEFORE_RESET_MS, timerTransitionToReady);
     MsTimer2::start();
+  } else {
+    wrongState = true; 
   }
 }
 
 void timerTransitionToReady() {
-  Serial.println("DLY->RDY");
+  if (wrongBeam) {
+     Serial.println("Earlier: same beam broken");
+  }
+  if (wrongState) {
+     Serial.println("Earlier: beam broken in wrong state");
+  }
+  Serial.println("Delay -> Ready");
   ready();
 }
 
@@ -506,6 +542,5 @@ long absTimeDifference(long past, long present) {
     return 0;
   }
 }
-
 
 
